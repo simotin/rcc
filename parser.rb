@@ -8,14 +8,14 @@ require './exception'
 
 # TODO データサイズ
 SIZE_OF_INT = 4
-SIZE_OF_INT = 1
+SIZE_OF_CHAR = 1
 
 class Parser
   def initialize filepath
     @filepath = filepath
 
     @data_types = [
-      {sym: :T_KW_INT, size: SIZE_OF_INT}
+      {sym: :T_KW_INT, size: SIZE_OF_INT},
       {sym: :T_KW_CHAR, size: SIZE_OF_CHAR}
     ]
   end
@@ -112,14 +112,43 @@ private
 
   # 引数の情報を調べる
   def check_args token
+    AppLoger.call_in
+
     # 開始かっこのチェック
     ret = check_token(token, :T_OPEN_PAREN)
     token_mismatch_error(token, :T_OPEN_PAREN) unless ret
+
+    argc = 0
+    argv = []
+
+    # 閉じかっこが出てくるまでは、 型 変数名 カンマ が続く
     token = next_token
+    until check_token(token, :T_CLOSE_PAREN) != true
+      ret = check_data_type(token)
+      if ret == false
+        # データ型がない
+        raise RccException.new("PARSE_ERROR",
+          "#{@filepath}:#{token[:lineno]} '#{token[:sym]}', token:'#{token[:value]}' is not Data tyoe.")
+      end
 
-    unless
+      # 変数名取得
+      token = next_token
+      ret = check_token(token, :T_IDENTIFER)
+      token_mismatch_error(token, :T_IDENTIFER) unless ret
 
-    ret = check_data_type(token)
+      token = next_token
+      if (token[:sym] == :T_COMMA)
+        # カンマであれば次のトークンの処理を行う
+        token = next_token
+      elsif token[:sym] == :T_CLOSE_PAREN
+        # 閉じかっこであれば引数のチェックを終了する
+        break
+      else
+        raise RccException.new("PARSE_ERROR",
+          "#{@filepath}:#{token[:lineno]} '#{token[:sym]}', token:'#{token[:value]}' is not expected.")
+      end
+    end
+    AppLoger.call_out
   end
 
   # データ型かどうかチェックする
@@ -129,13 +158,11 @@ private
     @data_types.each do |data_type|
       if token[:sym] == data_type[:sym]
         data_type_matched = true
+        puts data_type[:sym]
         break
       end
     end
-    unless data_type_matched
-      raise RccException.new("PARSE_ERROR",
-       "#{@filepath}:#{token[:lineno]} '#{token[:sym]}', token:'#{token[:value]}' is not Data tyoe.")
-    end
+    data_type_matched
   end
 
 
