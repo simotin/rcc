@@ -15,23 +15,30 @@ class AppLoger
 
     def trace(msg, level=LOG_LEVEL_DEBUG)
       caller_info = caller.first
-      filename = File.basename(caller_info)
-      line = filename + " " + msg
+      line = make_log(caller_info, msg)
       @@logger.send(level, line)
     end
 
     def call_in
       caller_info = caller.first
-      filename = File.basename(caller_info)
-      line = filename + " " + "Called In..."
+      line = make_log(caller_info, "In...")
       @@logger.send(LOG_LEVEL_DEBUG, line)
     end
 
     def call_out
       caller_info = caller.first
-      filename = File.basename(caller_info)
-      line = filename + " " + "Called Out..."
+      line = make_log(caller_info, "Out...")
       @@logger.send(LOG_LEVEL_DEBUG, line)
+    end
+
+    private
+
+    def make_log caller_info, msg
+      info_list = caller_info.split(':')
+      filename = File.basename(info_list[0])
+      lineno = info_list[1]
+      method_name = info_list[2].slice(/`.*'/)
+      line = "[#{filename}]:[#{sprintf("%4d",lineno)}] #{method_name} #{msg}"
     end
   end
 end
