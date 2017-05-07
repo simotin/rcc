@@ -1,100 +1,85 @@
-require 'strscan'
+#!/usr/local/bin/ruby
 
+require './app_logger'
+require './scanner'
+require './parser'
+require './preproseccer'
+
+# =============================================================================
+# 実装方針
+#   - 各フェーズの独立性を高める
+#   - 先に字句解析を行う
+# =============================================================================
 class Rcc
+  def compile filepath
+    @preprocessor = Preprocessor.new
+    @scanner = Scanner.new filepath
+    @parser = Parser.new filepath
 
-  def initialize
-    @pos = 0
-    @tokens = []
-    @token_rules = [
-      { sym: :T_IDENTIFER, reg: /[a-z]|[A-Z]+/ },
-      { sym: :T_NUMBER, reg: /[0-9]+/ },
-      { sym: :T_EQUAL, reg: /\=/ },
-      { sym: :T_ADD, reg: /\+/ },
-      { sym: :T_DEL, reg: /\-/ },
-      { sym: :T_MUL, reg: /\*/ },
-      { sym: :T_OP, reg: /\(/ },
-      { sym: :T_CP, reg: /\)/ }
-    ]
+    code = File.read(filepath)
+
+    # =========================================================================
+    # フロントエンド 前処理、字句解析～構文解析
+    # =========================================================================
+    # 前処理
+    preprocessed_code = @preprocessor.execute(code)
+
+    # 字句解析
+    tokens = @scanner.scan(preprocessed_code)
+
+    # 構文解析
+    parse_result = @parser.parse(tokens)
+
+    # =========================================================================
+    # ミドルエンド 意味解析～最適化
+    # =========================================================================
+    # 意味解析
+    #analyze
+
+    # 最適化
+    #optimize
+
+    # =========================================================================
+    # バックエンド 意味解析～最適化
+    # =========================================================================
+    # コード実行
+    #execute
   end
 
-  def scan_line line
-    s = StringScanner.new line
-    while !s.eos?
-      # スペース,タブはスキップ(無視)
-      s.scan(/[\s\t]+/)
-      @token_rules.each do |rule|
-        c = s.scan(rule[:reg])
-        push_token(rule[:sym], c) unless c.nil?
-      end
-    end
-    puts @tokens
+private
+
+  def analyze
+    AppLoger.trace("#{__method__} called...")
+  end
+
+  def optimize
+    AppLoger.trace("#{__method__} called...")
+  end
+
+  def execute
+    AppLoger.trace("#{__method__} called...")
   end
 
   def push_token symbol, value
     @tokens << {sym: symbol, value: value}
   end
-
-  def parse_tokens
-    result = assign(@tokens[0])
-    puts result
-  end
-
-  def assign token
-    if token[:sym] == :T_IDENTIFER
-      t = next_token
-      if t[:sym] == :T_EQUAL
-        t = next_token
-        val = exp(t)
-      end
-    end
-    # TODO 記号表を更新
-    val
-  end
-
-  # number + number + ...
-  def exp token
-    val = term(token)
-  end
-
-  def term(token)
-    val = 0
-    status = :STATUS_ADD
-    until token.nil?
-      puts "token:#{token}, status:#{status}"
-      if token[:sym] == :T_NUMBER
-        tmp = token[:value].to_i
-        case status
-        when :STATUS_ADD
-          val += tmp
-        when :STATUS_DEL
-          val -= tmp
-        else
-          # TODO 異常系
-          puts status
-          puts "Error Status"
-        end
-        status = :STATUS_WAIT_OPERATOR
-      elsif token[:sym] == :T_ADD
-        status = :STATUS_ADD if status == :STATUS_WAIT_OPERATOR
-      elsif token[:sym] == :T_DEL
-        status = :STATUS_DEL if status == :STATUS_WAIT_OPERATOR
-      else
-        # TODO
-        puts "Error Not Number"
-      end
-      puts "next..."
-      token = next_token
-    end
-    val
-  end
-
-  def next_token
-    @pos += 1
-    @tokens[@pos]
-  end
 end
 
-line = "a = 1 + 2 + 3 - 10"
-parser = Rcc.new
-parser.scan_line line
-parser.parse_tokens
+# 解析異常を例外としてraiseしているのでここで補足する
+# TODO
+#   - 例外発生時のリソース解放とか考慮していないので補足するレイヤは考える必要がある
+begin
+  AppLoger.setup "rcc"
+
+  rcc = Rcc.new
+  if ARGV.size < 1
+    puts "No input file"
+    exit -1
+  end
+
+  filepath = ARGV[0]
+  rcc = Rcc.new
+  rcc.compile(filepath)
+rescue RccException => ex
+  puts ex.message
+end
