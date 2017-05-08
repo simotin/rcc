@@ -212,25 +212,39 @@ private
     AppLoger.call_out
   end
   # 式
-  # - None
-  # - term
-  # - term + term
-  # - term - term
+  # None
+  # term
+  # term + term
+  # term - term
   def parse_exp token
     # TODO
-    2017-05-07 ここまで a = 123;の行で式の解析までたどり着いた
+    # 2017-05-07 ここまで a = 123;の行で式の解析までたどり着いた
     AppLoger.call_in
     term(token)
     nt = next_token
+
     AppLoger.call_out
     return if nt.nil?
 
   end
 
   # 項
-  # - 数値
-  # - 掛け算,割り算
+  # - 変数 a
+  # - 数値 123
+  # - 掛け算,割り算 a * 3, 123 / 5
   def term token
+    AppLoger.call_in
+    loop do
+      # 識別子(変数)の場合
+      if check_token(token, :T_IDENTIFER) == true
+
+      end
+
+      # 識別子(数値)の場合
+      if check_token(token, :T_INTEGER) == true
+      end
+    end
+
   end
 
   # 次のトークンを取得する
@@ -242,8 +256,7 @@ private
     @tokens[@token_pos]
   end
 
-  # トークン位置を
-  # 注意:チェック処理などで余分に読み出しをしてしまったとき用
+  # トークン位置をチェック処理などで余分に読み出しをしてしまったとき用
   # 余分な呼び出しをしないようにもできるが同じような処理が多くなるためトークンの返却で対応する
   def back_token_pos
     @token_pos -= 1
