@@ -16,6 +16,7 @@ class Scanner
       { sym: :T_ADD				    ,	reg: /\+/ },
       { sym: :T_DEL				    ,	reg: /\-/ },
       { sym: :T_ASTER			    ,	reg: /\*/ },
+      { sym: :T_SLASH			    ,	reg: /\// },
       { sym: :T_OPEN_PAREN		,	reg: /\(/ },
       { sym: :T_CLOSE_PAREN		,   reg: /\)/ },
       { sym: :T_OPEN_BRACE		,	reg: /{/ },

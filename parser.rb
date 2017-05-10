@@ -213,6 +213,7 @@ private
   end
   # 式
   # None
+  # indetifyer
   # term
   # term + term
   # term - term
@@ -220,7 +221,13 @@ private
     # TODO
     # 2017-05-07 ここまで a = 123;の行で式の解析までたどり着いた
     AppLoger.call_in
-    term(token)
+
+    # ;がが出てくるまでトークンを処理
+    until token[:sym] == :T_SEMICOLON
+      ret = term(token)
+
+
+    end
     nt = next_token
 
     AppLoger.call_out
@@ -229,23 +236,40 @@ private
   end
 
   # 項
-  # - 変数 a
+  # - factor
+  # - factor * factor
+  # - (exp)
   # - 数値 123
   # - 掛け算,割り算 a * 3, 123 / 5
   def term token
     AppLoger.call_in
     loop do
-      # 識別子(変数)の場合
-      if check_token(token, :T_IDENTIFER) == true
+      ast = factor(token)
+      unless ast.nil?
+        token = next_token
+        if token[:sym] == :T_ASTER || token[:sym] == :T_SLASH
+          token = next_token
+          ast_right = factor(token)
+        end
+      else
+        exp(token)
+      end
 
+    end
       end
 
       # 識別子(数値)の場合
       if check_token(token, :T_INTEGER) == true
       end
     end
-
   end
+
+  # 因子
+  # - 数値
+  def factor token
+    return AstInteger.new(token) if check_token(token, :T_INTEGER)
+  end
+
 
   # 次のトークンを取得する
   def next_token
