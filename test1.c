@@ -8,6 +8,7 @@
 // をサポートする
 // hoge関数は引数を標準出力する組み込み関数とする
 // 文字コードはUTF-8,改行コードはLFのみとする
+int number = 10;
 int main(int argc, char **argv)
 {
 	int a;

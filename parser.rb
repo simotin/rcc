@@ -58,7 +58,7 @@ private
       # 宣言部解析
       # 関数宣言・変数宣言共通
       # ===================================================
-      parse_decration_head(token)
+      declare_info = parse_decration_head(token)
       token = next_token
       if check_token(token, :T_OPEN_PAREN)
         # 関数定義
@@ -66,7 +66,7 @@ private
         nodes << node
       else
         # 変数宣言
-        parse_global_variables(token)
+        parse_global_variables(token, declare_info)
       end
       token = next_token
       if token.nil?
@@ -117,17 +117,53 @@ private
     access_level
   end
 
-  def parse_global_variables token
+  # グローバル変数の解析
+  # int a;
+  # int a[123];
+  # int a = 10;
+  def parse_global_variables token, var_info
     AppLoger.call_in
+    dimention = 1
+    element_size = 1
+    default_value = 0
 
+    # セミコロン → 宣言のみで終了
+    return var_info if check_token(token, :T_SEMICOLON)
 
-    # TODO ユーザー定義型
-    ret = check_data_type(token, ret_info)
-    if ret == false
-      #
-      return nil
+    if check_token(token, :T_OPEN_BRACKET)
+      # 配列型
+      until check_token(token, :T_SEMICOLON)
+        token = next_token
+        check_token(token, :T_OPEN_BRACKET)
+
+        # 添え字が数値でなければ異常
+        token_mismatch_error(token, :T_NUMBER) unless check_token(token, :T_NUMBER)
+
+        # 要素のサイズを計算
+        elm_size *= token[:value].to_i
+
+        # 閉じかっこ']' でなければ異常
+        token_mismatch_error(token, :T_CLOSE_BRACKET) unless check_token(token, :T_CLOSE_BRACKET)
+      end
+    elsif check_token(token, :T_EQUAL)
+      # 宣言と同時の代入
+      token = next_token
+
+      # 代入は定数であること
+      # TODO とりあえず直値のみとする
+      token_mismatch_error(token, :T_NUMBER) unless check_token(token, :T_NUMBER)
+      token = next_token
+      token_mismatch_error(token, :T_SEMICOLON) unless check_token(token, :T_SEMICOLON)
+
+      # 初期値を更新
+      default_value = token[:value].to_i
     end
+
+    # 初期値, 配列次元数
+    h = {default_value: default_value, dimention: dimention, element_size: element_size}
+    puts h
     AppLoger.call_out
+    h
   end
 
   # 関数定義
