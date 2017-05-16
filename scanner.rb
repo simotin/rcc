@@ -12,15 +12,32 @@ class Scanner
     @pos = 0
     @tokens = []
     @@token_rules = [
+      { sym: :T_ESCAPE 	      ,	reg: /\\/ },
+      { sym: :T_PERSENT	      ,	reg: /%/ },
+      { sym: :T_TILDA	        ,	reg: /~/ },
+      { sym: :T_PIPE	        ,	reg: /\|/ },
+      { sym: :T_SHARP 	      ,	reg: /#/ },
+      { sym: :T_EXCLAMATION   ,	reg: /!/ },
+      { sym: :T_AND           ,	reg: /&/ },
+      { sym: :T_SMALLER_THAN  ,	reg: /</ },
+      { sym: :T_LARGER_THAN  ,	reg: />/ },
+      { sym: :T_SINGLE_QUOTE  ,	reg: /'/ },
+      { sym: :T_SINGLE_QUOTE  ,	reg: /'/ },
+      { sym: :T_DOUBLE_QUOTE  ,	reg: /"/ },
+      { sym: :T_SHARP 	      ,	reg: /#/ },
+      { sym: :T_DOT			      ,	reg: /\./ },
+      { sym: :T_COLON			    ,	reg: /:/ },
       { sym: :T_EQUAL			    ,	reg: /\=/ },
       { sym: :T_ADD				    ,	reg: /\+/ },
       { sym: :T_DEL				    ,	reg: /\-/ },
       { sym: :T_ASTER			    ,	reg: /\*/ },
       { sym: :T_SLASH			    ,	reg: /\// },
       { sym: :T_OPEN_PAREN		,	reg: /\(/ },
-      { sym: :T_CLOSE_PAREN		,   reg: /\)/ },
+      { sym: :T_CLOSE_PAREN		, reg: /\)/ },
       { sym: :T_OPEN_BRACE		,	reg: /{/ },
-      { sym: :T_CLOSE_BRACE		,   reg: /}/ },
+      { sym: :T_CLOSE_BRACE		, reg: /}/ },
+      { sym: :T_OPEN_BRACKET	,	reg: /\[/ },
+      { sym: :T_CLOSE_BRACKET , reg: /]/ },
       { sym: :T_COMMA			    ,	reg: /,/ },
       { sym: :T_SEMICOLON		 ,	reg: /;/ },
       { sym: :T_NUMBER			 ,	reg: /[0-9]+/ }
@@ -92,6 +109,8 @@ class Scanner
       c = s.scan(/[a-zA-Z_][a-zA-Z0-9_]*/)
       next if c.nil?
 
+      push_token(:T_IDENTIFER, c, lineno)
+=begin
       keyword_matched = false
       @@keywords.each do |keyword|
       	if c == keyword[:keyword]
@@ -100,11 +119,11 @@ class Scanner
           push_token(keyword[:sym], c, lineno)
       	end
       end
-
 	  # キーワードに一致しない→識別子として保持
     unless keyword_matched
       push_token(:T_IDENTIFER, c, lineno)
     end
+=end
 
     end
 
