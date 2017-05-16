@@ -109,8 +109,6 @@ class Scanner
       c = s.scan(/[a-zA-Z_][a-zA-Z0-9_]*/)
       next if c.nil?
 
-      push_token(:T_IDENTIFER, c, lineno)
-=begin
       keyword_matched = false
       @@keywords.each do |keyword|
       	if c == keyword[:keyword]
@@ -119,12 +117,11 @@ class Scanner
           push_token(keyword[:sym], c, lineno)
       	end
       end
-	  # キーワードに一致しない→識別子として保持
-    unless keyword_matched
-      push_token(:T_IDENTIFER, c, lineno)
-    end
-=end
 
+  	  # キーワードに一致しない→識別子として保持
+      unless keyword_matched
+        push_token(:T_IDENTIFER, c, lineno)
+      end
     end
 
     @tokens

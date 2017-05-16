@@ -11,10 +11,27 @@
 int main(int argc, char **argv)
 {
 	int a;
-	
+	{
+		{
+		}
+	}
 	// //コメントはコメントアウト
 	a = 123;				// 末尾のコメントもプリプロセッサによって削除
 	hoge(a);
 	return 0;
 }
 
+void fff(int fff)
+{
+	/* comment あ */
+	#if 1
+	if (a == 222) {
+		switch (b == 333)	// fff
+		{
+		case 1:
+		}
+	}else {
+	}
+	#endif
+	return;
+}
