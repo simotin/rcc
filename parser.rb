@@ -1,4 +1,5 @@
 require './exception'
+require './ast/ast_integer'
 
 # =============================================================================
 # 構文解析器
@@ -22,8 +23,6 @@ class Parser
   def parse tokens
     @tokens = tokens
     @token_pos = 0
-
-    csv = File.open("resul.csv", "w")
 
     # ========================================
     # 文法ルールに則って解析を行う
@@ -212,14 +211,16 @@ private
 
     # ローカル変数の宣言チェック
     # TODO ローカル変数の情報を更新
-    #token = next_token
-    #local_vars = []
-    #parse_local_variables_declare(token, local_vars)
+    token = next_token
+    local_vars = []
+    parse_local_variables_declare(token, local_vars)
+puts "local_vars:#{local_vars}"
 
     # 関数本体の'{'に対応する'}'が見つかるまで解析を行う
+    token = cur_token
+    puts "token:#{token}"
     max_nest_level = 0
     loop do
-      token = next_token
       if token[:sym] == :T_OPEN_BRACE
         stack_tmp.push(token)
         max_nest_level += 1 if  max_nest_level < stack_tmp.size
@@ -238,7 +239,8 @@ private
       end
 
       # 関数内処理(文)の解析
-      # ret = parse_stmt(token)
+      ret = parse_stmt(token)
+      token = next_token
     end
     func_body_info[:max_nest_level] = max_nest_level
     AppLoger.call_out
@@ -254,8 +256,7 @@ private
     loop do
 
       var_info = {}
-      ret = check_data_type(token, var_info)
-      if ret
+      if check_data_type(token, var_info)
         token = next_token
         token_mismatch_error(token, :T_IDENTIFER) unless check_token(token, :T_IDENTIFER)
         var_info[:name] = token[:value]
@@ -266,6 +267,7 @@ private
         if token[:sym] == :T_SEMICOLON
           # 宣言終了';' → 変数名を保持
           # 次の変数へ
+          token = next_token;
           next
         end
 =begin
@@ -292,23 +294,39 @@ private
   # 文 → 代入、関数呼び出し
   def parse_stmt token
     AppLoger.call_in
-    # 文 → 代入、関数呼び出し
-    if check_token(token, :T_IDENTIFER)
-      token = next_token
-      ret = check_token(token, :T_EQUAL)
-      if ret
-        # 式
+    until token[:sym] == :T_SEMICOLON
+      case token[:sym]
+      when :T_IDENTIFER
         token = next_token
-        parse_exp(token)
+        puts "token:#{token}"
+        if check_token(token, :T_EQUAL)
+          # 式
+          token = next_token
+          parse_exp(token)
+        elsif check_token(token, :T_OPEN_PAREN)
+          puts "function call!!!"
+          # 関数呼び出し
+          token = next_token
+          ast = parse_func_call(token)
+
+        else
+          # 代入でも関数呼び出しでもない
+          raise RccException.new("PARSE_ERROR",
+            "#{@filepath}:#{token[:lineno]}" +
+            " unexpected token sym:'#{token[:sym]}', token:'#{token[:value]}'.")
+        end
+      when :T_KW_RETURN
+        puts "return !!!!!!!!"
+        token = next_token
+        parse_exp token
+        token = cur_token
+        puts "cur token:#{token}"
       else
-        # 関数呼び出し
-        token = next_token
-        token_mismatch_error(token, :T_OPEN_PAREN) unless check_token(token, :T_OPEN_PAREN)
+        # 式でも関数呼び出しでもない
+        raise RccException.new("PARSE_ERROR",
+          "#{@filepath}:#{token[:lineno]}" +
+          " unexpected token sym:'#{token[:sym]}', token:'#{token[:value]}'.")
       end
-    else
-      # 式でも関数呼び出しでもない
-      raise RccException.new("PARSE_ERROR",
-        "#{@filepath}:#{token[:lineno]} stmt is expected '#{token[:sym]}', token:'#{token[:value]}'.")
     end
     AppLoger.call_out
   end
@@ -321,10 +339,17 @@ private
   # 関数呼び出しの解析
   def parse_func_call token
     AppLoger.call_in
-    if check_token(token[:sym], :T_IDENTIFER)
+    # 引数チェック
+    until token[:sym] == T_CLOSE_PAREN
+      if check_token(token, :T_IDENTIFER)
+        # ローカル変数 or グローバル変数
+      elsif check_token(token, :T_IDENTIFER)
+        # 直値を引数として渡している
+      end
     end
     AppLoger.call_out
   end
+
   # 式
   # None
   # indetifyer
@@ -332,19 +357,10 @@ private
   # term + term
   # term - term
   def parse_exp token
-    # TODO
-    # 2017-05-07 ここまで a = 123;の行で式の解析までたどり着いた
     AppLoger.call_in
-
-    # ;がが出てくるまでトークンを処理
-    until token[:sym] == :T_SEMICOLON
-      ret = term(token)
-    end
-    nt = next_token
-
+    puts "token:#{token}"
+    ret = term(token)
     AppLoger.call_out
-    return if nt.nil?
-
   end
 
   # 項
@@ -355,35 +371,48 @@ private
   # - 掛け算,割り算 a * 3, 123 / 5
   def term token
     AppLoger.call_in
-=begin
+    ast = nil
     loop do
       ast = factor(token)
       unless ast.nil?
         token = next_token
+        break if token.nil?
+
         if token[:sym] == :T_ASTER || token[:sym] == :T_SLASH
           token = next_token
           ast_right = factor(token)
+          if ast_right.nil?
+            # データ型がない
+            raise RccException.new("PARSE_ERROR", "#{@filepath}:#{token[:lineno]} factor is expected.")
+          end
+        else
+          puts "not * or /"
+          puts "token:#{token}"
+          break
         end
       else
-        exp(token)
-      end
-
-    end
-      end
-
-      # 識別子(数値)の場合
-      if check_token(token, :T_INTEGER) == true
+        # factor 以外のトークン
+        puts "************* not factor #{token} ********************"
+        break
       end
     end
-=end
+    AppLoger.call_out
+    ast
   end
 
   # 因子
   # - 数値
   def factor token
-    return AstInteger.new(token) if check_token(token, :T_INTEGER)
+    if check_token(token, :T_INTEGER)
+      ast = ASTInteger.new(token)
+    end
+    ast
   end
 
+ # 現在位置のトークンを取得する
+ def cur_token
+   @tokens[@token_pos]
+ end
 
   # 次のトークンを取得する
   def next_token
