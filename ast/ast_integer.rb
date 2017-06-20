@@ -1,4 +1,5 @@
-require './ast_base'
+$LOAD_PATH.push('./ast')
+require 'ast_base'
 
 class ASTInteger < ASTBase
   def initialize token
