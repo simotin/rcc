@@ -40,7 +40,7 @@ class Scanner
       { sym: :T_CLOSE_BRACKET , reg: /]/ },
       { sym: :T_COMMA			    ,	reg: /,/ },
       { sym: :T_SEMICOLON		 ,	reg: /;/ },
-      { sym: :T_NUMBER			 ,	reg: /[0-9]+/ }
+      { sym: :T_INTEGER			 ,	reg: /[0-9]+/ }
     ]
 
 	@@keywords = [
