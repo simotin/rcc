@@ -56,12 +56,11 @@ private
     access_level = check_access_level(token)
     data_type = {}
     unless check_data_type(token, data_type)
-      raise RccException.new("PARSE_ERROR",
-      "#{@filepath}:#{token[:lineno]}, unexpected '#{token}' found. Data type expected.")
+      parse_error "#{@filepath}:#{token[:lineno]}, unexpected '#{token}' found. Data type expected."
     end
 
     token = next_token
-    token_mismatch_error(token, :T_IDENTIFER) unless check_token(token, :T_IDENTIFER)
+    unexpected_token(token, :T_IDENTIFER) unless check_token(token, :T_IDENTIFER)
 
     dec_info = {name:token[:value], access_level: access_level, data_type: data_type}
     AppLoger.call_out
@@ -92,20 +91,20 @@ private
         check_token(token, :T_OPEN_BRACKET)
 
         # 添え字が数値でなければ異常
-        token_mismatch_error(token, :T_NUMBER) unless check_token(token, :T_NUMBER)
+        unexpected_token(token, :T_NUMBER) unless check_token(token, :T_NUMBER)
 
         elm_size *= token[:value].to_i
 
         # 閉じかっこ']' でなければ異常
-        token_mismatch_error(token, :T_CLOSE_BRACKET) unless check_token(token, :T_CLOSE_BRACKET)
+        unexpected_token(token, :T_CLOSE_BRACKET) unless check_token(token, :T_CLOSE_BRACKET)
       end
     elsif check_token(token, :T_EQUAL)
       # 宣言と同時の代入
       token = next_token
       # TODO とりあえず直値のみとする
-      token_mismatch_error(token, :T_NUMBER) unless check_token(token, :T_NUMBER)
+      unexpected_token(token, :T_NUMBER) unless check_token(token, :T_NUMBER)
       token = next_token
-      token_mismatch_error(token, :T_SEMICOLON) unless check_token(token, :T_SEMICOLON)
+      unexpected_token(token, :T_SEMICOLON) unless check_token(token, :T_SEMICOLON)
 
       # 初期値を更新
       default_value = token[:value].to_i
@@ -146,7 +145,7 @@ private
     func_body_info = {}
     stack_tmp = []
 
-    token_mismatch_error(token, :T_OPEN_BRACE) unless check_token(token, :T_OPEN_BRACE)
+    unexpected_token(token, :T_OPEN_BRACE) unless check_token(token, :T_OPEN_BRACE)
 
     # 対応チェック用スタックにpush
     stack_tmp.push(token)
@@ -173,8 +172,7 @@ private
         if top[:sym] == :T_OPEN_BRACE
           break if stack_tmp.size == 0
         else
-          raise RccException.new("PARSE_ERROR",
-            "#{@filepath}:#{token[:lineno]}, unexpected '}' found.")
+          parse_error "#{@filepath}:#{token[:lineno]}, unexpected '}' found."
         end
       end
 
@@ -198,7 +196,7 @@ private
       var_info = {}
       if check_data_type(token, var_info)
         token = next_token
-        token_mismatch_error(token, :T_IDENTIFER) unless check_token(token, :T_IDENTIFER)
+        unexpected_token(token, :T_IDENTIFER) unless check_token(token, :T_IDENTIFER)
         var_info[:name] = token[:value]
         local_var_list << var_info
 
@@ -224,6 +222,7 @@ private
   def parse_stmt token, local_vars
     AppLoger.call_in
     until token[:sym] == :T_SEMICOLON
+      puts "token:#{token}"
       case token[:sym]
       when :T_IDENTIFER
         name = token[:value]
@@ -231,32 +230,26 @@ private
         if check_token(token, :T_EQUAL)
           # 式
           token = next_token
-          parse_exp(token)
+          exp(token)
         elsif check_token(token, :T_OPEN_PAREN)
           funcs = @function_list.select{|function| function[:name] == name}
           if funcs.empty?
-            raise RccException.new("PARSE_ERROR",
-              "#{@filepath}:#{token[:lineno]}, function '#{name}' is not defined.")
+            parse_error  "#{@filepath}:#{token[:lineno]}, function '#{name}' is not defined."
           end
 
           token = next_token
           ast = parse_func_call(token, funcs, local_vars)
-          puts ast
+          puts "ast:{ast}"
           token = next_token
         else
-          # 代入でも関数呼び出しでもない
-          raise RccException.new("PARSE_ERROR",
-            "#{@filepath}:#{token[:lineno]}" +
-            " unexpected token sym:'#{token[:sym]}', token:'#{token[:value]}'.")
+          parse_error "#{@filepath}:#{token[:lineno]} unexpected token sym:'#{token[:sym]}', token:'#{token[:value]}'."
         end
       when :T_KW_RETURN
         token = next_token
-        parse_exp token
+        exp(token)
         token = cur_token
       else
-        raise RccException.new("PARSE_ERROR",
-          "#{@filepath}:#{token[:lineno]}" +
-          " unexpected token sym:'#{token[:sym]}', token:'#{token[:value]}'.")
+        parse_error "#{@filepath}:#{token[:lineno]} unexpected token sym:'#{token[:sym]}', token:'#{token[:value]}'."
       end
     end
     AppLoger.call_out
@@ -267,27 +260,15 @@ private
     AppLoger.call_in
   end
 
-  # 関数呼び出しの解析
   def parse_func_call token, func_list, local_vars
     AppLoger.call_in
-    arg_num = 1
 
-    # ここで関数呼び出しのASTを作る
-
-    # TODO
-    # 関数のオーバーロードチェックができていない
-    func_info = func_list.first
-
-    loop do
-      puts token
-      if func_info[:args].length < arg_num
-        raise RccException.new("PARSE_ERROR",
-          "#{@filepath}:#{token[:lineno]} too many argument for '#{func_info[:name]}, #{arg_num} for #{func_info[:args].length}'")
-      end
-
+    ast_args = []
+    until check_token(token, :T_CLOSE_PAREN)
+      ast_args << exp(token)
       if check_token(token, :T_IDENTIFER)
         if local_vars.index{|var| var[:sym] == token[:sym]}
-          # ローカル変数
+          # check local variables
           token = next_token
           break if check_token(token, :T_CLOSE_PAREN)
           if check_token(token, :T_COMMA)
@@ -295,7 +276,7 @@ private
             next
           end
         elsif @global_vars.index{|var| var[:sym] == token[:sym]}
-          # グローバル変数
+          # check global variables
           token = next_token
           break if check_token(token, :T_CLOSE_PAREN)
           if check_token(token, :T_COMMA)
@@ -304,16 +285,12 @@ private
           end
         else
           # データ型がない
-          raise RccException.new("PARSE_ERROR",
-            "#{@filepath}:#{token[:lineno]} undefined variable '#{token[:sym]}'," +
-            " token:'#{token[:value]}' used for function call.")
+          parse_error "#{@filepath}:#{token[:lineno]} undefined variable '#{token[:sym]}', token:'#{token[:value]}' used for function call."
         end
       elsif check_token(token, :T_INTEGER)
         data_type = func_info[:args][arg_num - 1][:data_type]
         if data_type != :T_KW_INT
-          raise RccException.new("PARSE_ERROR",
-            "#{@filepath}:#{token[:lineno]} arg #{arg_num -1 }" +
-            " type for function '#{func_info[:name]}' is '#{data_type}'")
+          parse_error "#{@filepath}:#{token[:lineno]} arg #{arg_num -1 } type for function '#{func_info[:name]}' is '#{data_type}'"
         end
         token = next_token
         break if check_token(token, :T_CLOSE_PAREN)
@@ -322,57 +299,61 @@ private
           next
         end
       else
-        raise RccException.new("PARSE_ERROR",
-          "#{@filepath}:#{token[:lineno]} unexpected token '#{token[:sym]}' found.")
+        parse_error "#{@filepath}:#{token[:lineno]} unexpected token '#{token[:sym]}' found."
       end
     end
-    AppLoger.call_out
-
-
   end
 
-  # 式
-  def parse_exp token
+  def exp token
     AppLoger.call_in
-    AppLoger.trace "token:#{token}"
-    ret = term(token)
+    ast_left = term(token)
+    token = next_token
+
+    ast = nil
+    case token[:sym]
+    when :T_PLUS, :T_MINUS
+      ast_right = term(token)
+      ast_exp = ASTExp.new(token[:sym], ast_left, ast_right)
+    else
+      unexpected_token token
+    end
     AppLoger.call_out
+    ast_exp
   end
 
-  # 項
   def term token
     AppLoger.call_in
-    ast = nil
-    loop do
-      ast = factor(token)
-      unless ast.nil?
-        token = next_token
-        break if token.nil?
 
-        if token[:sym] == :T_ASTER || token[:sym] == :T_SLASH
-          token = next_token
-          ast_right = factor(token)
-          if ast_right.nil?
-            # データ型がない
-            raise RccException.new("PARSE_ERROR", "#{@filepath}:#{token[:lineno]} factor is expected.")
-          end
-        else
-          break
-        end
+    ast_factor = factor(token)
+    token = next_token
+
+    ast_ret = nil
+    case token[:sym]
+    when :T_ASTER, :T_SLASH
+      ast_right = term_2(token)
+      unless ast_right.nil?
+        ast_ret = ASTBinary.new(token[:sym], ast_factor, ast_right)
       else
-        break
+        ast_ret = ast_factor
       end
     end
+
     AppLoger.call_out
-    ast
+    ast_ret
   end
 
-  # 因子
-  def factor token
-    if check_token(token, :T_INTEGER)
-      ast = ASTInteger.new(token)
+  def term_2 token
+    ast_term = nil
+    until token[:sym] == :T_ASTER || token[:sym] == :T_SLASH
+      token = next_token
+      ast_term = term(token)
     end
-    ast
+    ast_term
+  end
+
+  def factor token
+    unexpected_token(:T_INTEGER) unless check_token(token, :T_INTEGER)
+    ASTInteger.new(token)
   end
 
  def cur_token
@@ -414,7 +395,7 @@ private
 
     args_info = []
     ret = check_token(token, :T_OPEN_PAREN)
-    token_mismatch_error(token, :T_OPEN_PAREN) unless ret
+    unexpected_token(token, :T_OPEN_PAREN) unless ret
 
     token = next_token
     arg_info = {}
@@ -422,14 +403,12 @@ private
       ret = check_data_type(token, arg_info)
       if ret == false
         # データ型がない
-        raise RccException.new("PARSE_ERROR",
-          "#{@filepath}:#{token[:lineno]} '#{token[:sym]}', token:'#{token[:value]}' is not Data type.")
+        parse_error "#{@filepath}:#{token[:lineno]} '#{token[:sym]}', token:'#{token[:value]}' is not Data type."
       end
 
       # 変数名取得
       token = next_token
-      ret = check_token(token, :T_IDENTIFER)
-      token_mismatch_error(token, :T_IDENTIFER) unless ret
+      unexpected_token(token, :T_IDENTIFER) unless check_token(token, :T_IDENTIFER)
       arg_info[:name] = token[:value]
       args_info << arg_info
 
@@ -441,8 +420,7 @@ private
         # 閉じかっこであれば引数のチェックを終了する
         break
       else
-        raise RccException.new("PARSE_ERROR",
-          "#{@filepath}:#{token[:lineno]} '#{token[:sym]}', token:'#{token[:value]}' is not expected.")
+        parse_error "#{@filepath}:#{token[:lineno]} '#{token[:sym]}', token:'#{token[:value]}' is not expected."
       end
     end
 
@@ -450,9 +428,7 @@ private
     args_info
   end
 
-  # データ型かどうかチェックする
-  # TODO C言語の場合構造体やtypedefが可能だが、とりあえずINT型のみのチェックとする
-  # TODO 配列型のチェック
+  # 配列型のチェック
   def check_data_type token, data_type_info
     AppLoger.call_in
     data_type_matched = false
@@ -483,7 +459,14 @@ private
     data_type_matched
   end
 
-  def token_mismatch_error token, expect
-    raise RccException.new("PARSE_ERROR", "#{@filepath}:#{token[:lineno]} '#{expect}' is expected, receive token is type:'#{token[:sym]}', token:'#{token[:value]}'.")
+  def parse_error msg
+  	 raise RccException.new("PARSE_ERROR", msg)
+  end
+
+  def unexpected_token token, expect = nil
+    msg = "#{@filepath}:#{token[:lineno]} Unexpected token found, "
+    msg += "expected token is #{expect}." if expect
+    msg += "Received token is '#{token[:value]}', type:'#{token[:sym]}'."
+  	parse_error msg
   end
 end
