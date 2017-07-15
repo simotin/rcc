@@ -1,3 +1,5 @@
+int g_val;
+
 void fff(int a, int b)
 {
 	return 3;
