@@ -7,8 +7,7 @@ require './app_logger'
 #   - 先に字句解析を行う
 # =============================================================================
 class Scanner
-  def initialize filepath
-    @filepath = filepath
+  def initialize 
     @pos = 0
     @tokens = []
     @@token_rules = [
