@@ -100,7 +100,6 @@ class Scanner
           end
           string_literal << c
           if c == '"' && string_literal[-2] != '\\'
-            puts string_literal
             push_token(:STRING_LITERAL, string_literal, lineno)
             break
           end
