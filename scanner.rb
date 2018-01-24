@@ -7,7 +7,7 @@ require './app_logger'
 #   - 先に字句解析を行う
 # =============================================================================
 class Scanner
-  def initialize 
+  def initialize
     @pos = 0
     @tokens = []
     @@token_rules = [
@@ -22,7 +22,6 @@ class Scanner
       { sym: :T_LARGER_THAN  ,	reg: />/ },
       { sym: :T_SINGLE_QUOTE  ,	reg: /'/ },
       { sym: :T_SINGLE_QUOTE  ,	reg: /'/ },
-      { sym: :T_DOUBLE_QUOTE  ,	reg: /"/ },
       { sym: :T_SHARP 	      ,	reg: /#/ },
       { sym: :T_DOT			      ,	reg: /\./ },
       { sym: :T_COLON			    ,	reg: /:/ },
@@ -81,45 +80,65 @@ class Scanner
   # 字句解析
   def scan code
     s = StringScanner.new code
-    c = ""
+    token = ""
 
     # 解析行
     lineno = 1
     while !s.eos?
       # スペース,タブはスキップ(無視)
-      c = s.scan(/[\t ]+/)
+      s.scan(/[\t ]+/)
+
+      # 文字列リテラル
+      c = s.scan(/"/)
+      unless c.nil?
+        string_literal = c
+        loop do
+          c = s.getch
+          if c.nil?
+            puts "unexpected token!"
+            exit 1
+          end
+          string_literal << c
+          if c == '"' && string_literal[-2] != '\\'
+            puts string_literal
+            push_token(:STRING_LITERAL, string_literal, lineno)
+            break
+          end
+        end
+      end
 
       # 改行コードは行番号をカウント
-      c = s.scan(/\n|\r\n/)
-      lineno += 1 unless c.nil?
+      newline = s.scan(/\n|\r\n/)
+      lineno += 1 unless newline.nil?
+
 
       @@token_rules.each do |rule|
-        c = s.scan(rule[:reg])
-        unless c.nil?
-          push_token(rule[:sym], c, lineno)
+        token = s.scan(rule[:reg])
+        unless token.nil?
+          push_token(rule[:sym], token, lineno)
           break
         end
       end
 
       # 既に一致していれば次へ
-      next unless c.nil?
+      next unless token.nil?
 
       # キーワード・識別子判定
-      c = s.scan(/[a-zA-Z_][a-zA-Z0-9_]*/)
-      next if c.nil?
+      token = s.scan(/[a-zA-Z_][a-zA-Z0-9_]*/)
+      next if token.nil?
 
       keyword_matched = false
       @@keywords.each do |keyword|
-      	if c == keyword[:keyword]
+      	if token == keyword[:keyword]
       	  # キーワードに一致
           keyword_matched = true
-          push_token(keyword[:sym], c, lineno)
+          push_token(keyword[:sym], token, lineno)
       	end
       end
 
   	  # キーワードに一致しない→識別子として保持
       unless keyword_matched
-        push_token(:T_IDENTIFER, c, lineno)
+        push_token(:T_IDENTIFER, token, lineno)
       end
     end
 
