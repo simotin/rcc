@@ -13,7 +13,7 @@ require './preproseccer'
 class Rcc
   def compile filepath
     @preprocessor = Preprocessor.new
-    @scanner = Scanner.new filepath
+    @scanner = Scanner.new
     @parser = Parser.new filepath
 
     code = File.read(filepath)
